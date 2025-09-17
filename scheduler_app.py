@@ -459,7 +459,7 @@ class PlaylistScheduler:
         self.status_var.set(f"Pasted {len(self.clipboard_data)} videos")
     
     def export_playlist(self):
-        """Export playlist to M3U and JSON formats"""
+        """Export playlist to M3U and JSON formats with proper path formatting"""
         if not self.videos:
             messagebox.showwarning("No Videos", "No videos to export")
             return
@@ -473,14 +473,29 @@ class PlaylistScheduler:
         
         if filepath:
             try:
-                # Export M3U playlist
+                # Export M3U playlist with proper Windows path formatting
                 with open(filepath, 'w', encoding='utf-8') as f:
                     f.write("#EXTM3U\n")
                     
                     for video in self.videos:
                         duration_seconds = int(video['duration'])
+                        
+                        # Fix Windows path formatting for M3U compatibility
+                        video_path = video['filepath']
+                        
+                        # Normalize backslashes to forward slashes
+                        video_path = video_path.replace('\\', '/')
+                        
+                        # URL encode spaces for M3U compatibility
+                        video_path = video_path.replace(' ', '%20')
+                        
+                        # Add file protocol for Windows paths
+                        if not video_path.startswith('file:///'):
+                            video_path = f"file:///{video_path}"
+                        
+                        # Write M3U entries
                         f.write(f"#EXTINF:{duration_seconds},{video['filename']}\n")
-                        f.write(f"{video['filepath']}\n")
+                        f.write(f"{video_path}\n")
                 
                 # Also export JSON schedule for advanced automation
                 json_filepath = filepath.replace('.m3u', '_schedule.json')
@@ -511,9 +526,10 @@ class PlaylistScheduler:
                     f"M3U file: {filepath}\n"
                     f"JSON schedule: {json_filepath}\n\n"
                     f"Total videos: {len(self.videos)}\n"
-                    f"Total duration: {self.format_duration(current_time)}")
+                    f"Total duration: {self.format_duration(current_time)}\n\n"
+                    f"The M3U file is now VLC compatible with proper path formatting!")
                 
-                self.status_var.set("Playlist exported successfully")
+                self.status_var.set("Playlist exported successfully with VLC-compatible formatting")
                 
             except Exception as e:
                 messagebox.showerror("Error", f"Failed to export playlist: {str(e)}")
