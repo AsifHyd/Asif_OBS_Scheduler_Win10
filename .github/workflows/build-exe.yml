@@ -21,7 +21,7 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install pyinstaller tkinter-tooltip
+        pip install pyinstaller
     
     - name: Download FFmpeg
       run: |
@@ -42,17 +42,3 @@ jobs:
       with:
         name: PlaylistScheduler-Windows
         path: PlaylistScheduler-Windows.zip
-        
-    - name: Create Release
-      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-      uses: softprops/action-gh-release@v1
-      with:
-        tag_name: v1.0-${{ github.run_number }}
-        name: Playlist Scheduler v1.0-${{ github.run_number }}
-        body: |
-          Automated build of OBS Playlist Scheduler
-          - Windows executable included
-          - Extract PlaylistScheduler.exe and run
-        files: PlaylistScheduler-Windows.zip
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
