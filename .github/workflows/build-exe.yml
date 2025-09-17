@@ -1,4 +1,4 @@
-name: Build Windows EXE
+name: Build Windows EXE v1.1
 
 on:
   push:
@@ -21,7 +21,7 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install pyinstaller
+        pip install pyinstaller tkinterdnd2
     
     - name: Download FFmpeg
       run: |
@@ -31,14 +31,14 @@ jobs:
         
     - name: Build EXE
       run: |
-        pyinstaller --onedir --windowed --add-binary "ffprobe.exe;." --name "PlaylistScheduler" scheduler_app.py
+        pyinstaller --onedir --windowed --add-binary "ffprobe.exe;." --name "PlaylistScheduler-v1.1" scheduler_app.py
         
     - name: Create release package
       run: |
-        Compress-Archive -Path "dist/PlaylistScheduler/*" -DestinationPath "PlaylistScheduler-Windows.zip"
+        Compress-Archive -Path "dist/PlaylistScheduler-v1.1/*" -DestinationPath "PlaylistScheduler-v1.1-Windows.zip"
         
     - name: Upload artifact
       uses: actions/upload-artifact@v4
       with:
-        name: PlaylistScheduler-Windows
-        path: PlaylistScheduler-Windows.zip
+        name: PlaylistScheduler-v1.1-Windows
+        path: PlaylistScheduler-v1.1-Windows.zip
