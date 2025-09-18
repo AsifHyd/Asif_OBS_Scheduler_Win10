@@ -18,15 +18,16 @@ jobs:
       with:
         python-version: '3.11'
     
-    - name: Install dependencies
+    - name: Install dependencies with explicit obsws-python
       run: |
         python -m pip install --upgrade pip
-        pip install pyinstaller tkinterdnd2 obsws-python websockets
-        pip list
-    
-    - name: Verify obsws-python installation
-      run: |
-        python -c "import obsws_python; print('obsws-python installed successfully')"
+        pip install pyinstaller==6.1.0
+        pip install tkinterdnd2==0.3.0
+        pip install obsws-python==1.5.1
+        pip install websockets
+        echo "Verifying obsws-python installation:"
+        python -c "import obsws_python; print('obsws-python version:', obsws_python.__version__)"
+        pip list | findstr obsws
     
     - name: Download FFmpeg
       run: |
@@ -34,13 +35,16 @@ jobs:
         Expand-Archive -Path "ffmpeg.zip" -DestinationPath "."
         Copy-Item "ffmpeg-master-latest-win64-gpl/bin/ffprobe.exe" -Destination "."
         
-    - name: Build EXE with WebSocket Support
+    - name: Build EXE with proper WebSocket imports
       run: |
-        pyinstaller --onedir --windowed --add-binary "ffprobe.exe;." --hidden-import obsws_python --hidden-import websockets --name "OBS-Scheduler-v1.2-FULL" scheduler_app.py
+        pyinstaller --onedir --windowed --name "OBS-Scheduler-v1.2-FULL" --add-binary "ffprobe.exe;." --hidden-import obsws_python --hidden-import obsws_python.reqs --hidden-import websockets --hidden-import websockets.legacy --hidden-import websockets.legacy.client --collect-all obsws_python scheduler_app.py
         
-    - name: Verify EXE contents
+    - name: Verify build contents
       run: |
-        dir dist\OBS-Scheduler-v1.2-FULL
+        echo "Build directory contents:"
+        dir "dist\OBS-Scheduler-v1.2-FULL"
+        echo "Looking for obsws_python files:"
+        dir "dist\OBS-Scheduler-v1.2-FULL" /s | findstr obsws
         
     - name: Create release package
       run: |
