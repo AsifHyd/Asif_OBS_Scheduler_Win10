@@ -25,7 +25,7 @@ class PlaylistScheduler:
         self.current_video_index = -1
         self.broadcast_start_time = None
         self.manual_time_offset = 0
-        self.schedule_start_time = "00:00:00"  # NEW: Custom start time
+        self.schedule_start_time = "00:00:00"
         
         self.setup_ui()
         self.setup_drag_drop()
@@ -53,7 +53,7 @@ class PlaylistScheduler:
         
         ttk.Separator(left_panel, orient='horizontal').grid(row=4, column=0, sticky=(tk.W, tk.E), pady=5)
         
-        # NEW: Schedule Start Time
+        # Schedule Start Time
         ttk.Label(left_panel, text="⏰ Schedule Settings", font=('Arial', 9, 'bold')).grid(row=5, column=0, pady=(0,5), sticky=tk.W)
         
         time_frame = ttk.Frame(left_panel)
@@ -286,14 +286,15 @@ class PlaylistScheduler:
         self.status_var.set("Disconnected from OBS")
     
     def setup_obs_scenes(self):
-        """FIXED: Create OBS scenes with properly configured media sources"""
+        """FIXED: Create OBS scenes with properly populated sources"""
         if not self.obs_client or not self.videos:
             messagebox.showwarning("Setup Error", "Connect to OBS and add videos first.")
             return
         
         try:
             scene_count = 0
-            failed_sources = 0
+            success_count = 0
+            failed_count = 0
             
             for i, video in enumerate(self.videos):
                 scene_name = f"Video_{i+1:03d}_{os.path.splitext(video['filename'])[0][:15]}"
@@ -301,103 +302,112 @@ class PlaylistScheduler:
                 # Create scene first
                 try:
                     self.obs_client.create_scene(scene_name)
-                    print(f"Created scene: {scene_name}")
+                    print(f"✅ Created scene: {scene_name}")
                 except Exception as e:
-                    print(f"Scene {scene_name} might already exist: {e}")
+                    print(f"Scene {scene_name} might exist: {e}")
                 
-                # FIXED: Create media source with correct method
+                # Create input (media source)
                 source_name = f"Media_{i+1:03d}"
                 try:
-                    # Convert path format for OBS
                     file_path = os.path.abspath(video['filepath']).replace('\\', '/')
                     
-                    # Create the input (media source)
                     input_settings = {
                         'local_file': file_path,
                         'is_local_file': True,
                         'looping': False,
                         'restart_on_activate': True,
-                        'clear_on_media_end': True,
+                        'clear_on_media_end': False,
                         'close_when_inactive': False,
                         'speed_percent': 100,
-                        'hardware_decode': False,  # Disable hardware decode
+                        'hardware_decode': False,
                         'color_range': 0,
-                        'linear_alpha': False
                     }
                     
-                    # Create the input
+                    # Step 1: Create input
                     self.obs_client.create_input(
-                        scene_name=scene_name,
                         input_name=source_name,
                         input_kind='ffmpeg_source',
                         input_settings=input_settings
                     )
+                    print(f"✅ Created input: {source_name}")
                     
-                    print(f"✅ Created media source: {source_name} with file: {file_path}")
+                    # Step 2: Add input to scene (THIS IS THE KEY FIX!)
+                    self.obs_client.create_scene_item(
+                        scene_name=scene_name,
+                        source_name=source_name
+                    )
+                    print(f"✅ Added input to scene: {scene_name}")
+                    
+                    # Step 3: Set input settings
+                    self.obs_client.set_input_settings(
+                        input_name=source_name,
+                        input_settings=input_settings
+                    )
+                    print(f"✅ Set input settings for: {source_name}")
+                    
+                    success_count += 1
                     scene_count += 1
                     
                 except Exception as e:
-                    print(f"❌ Error creating source {source_name}: {e}")
-                    failed_sources += 1
+                    print(f"❌ Error setting up input for {scene_name}: {e}")
+                    failed_count += 1
                     
-                    # Try alternative method with SetInputSettings
+                    # Attempt fallback method
                     try:
-                        # First create empty media source
                         self.obs_client.create_input(
-                            scene_name=scene_name,
                             input_name=source_name,
                             input_kind='ffmpeg_source',
-                            input_settings={}
+                            input_settings={'local_file': file_path, 'is_local_file': True}
                         )
-                        
-                        # Then set the file path
+                        self.obs_client.create_scene_item(
+                            scene_name=scene_name,
+                            source_name=source_name
+                        )
                         self.obs_client.set_input_settings(
                             input_name=source_name,
                             input_settings={'local_file': file_path, 'is_local_file': True},
                             overlay=True
                         )
-                        
-                        print(f"✅ Alternative method worked for: {source_name}")
+                        print(f"✅ Fallback method worked for: {scene_name}")
+                        success_count += 1
+                        failed_count -= 1
                         scene_count += 1
-                        failed_sources -= 1
-                        
                     except Exception as e2:
-                        print(f"❌ Alternative method also failed for {source_name}: {e2}")
+                        print(f"❌ Fallback method failed for {scene_name}: {e2}")
             
             # Create emergency scene
             try:
                 self.obs_client.create_scene("Emergency_Scene")
-                
-                text_settings = {
-                    'text': 'TECHNICAL DIFFICULTIES\n\nPLEASE STAND BY',
-                    'font': {'face': 'Arial', 'size': 72, 'style': 'Bold'},
-                    'color': 4294967295,  # White
-                    'align': 'center',
-                    'valign': 'center'
-                }
-                
                 self.obs_client.create_input(
-                    scene_name="Emergency_Scene",
                     input_name="Emergency_Text",
-                    input_kind='text_gdiplus_v2',
-                    input_settings=text_settings
+                    input_kind="text_gdiplus_v2",
+                    input_settings={
+                        "text": "TECHNICAL DIFFICULTIES\n\nPLEASE STAND BY",
+                        "font": {"face": "Arial", "size": 72, "style": "Bold"},
+                        "color": 4294967295,
+                        "align": "center",
+                        "valign": "center"
+                    }
                 )
+                self.obs_client.create_scene_item("Emergency_Scene", "Emergency_Text")
+                print("✅ Emergency scene created")
             except Exception as e:
-                print(f"Emergency scene error: {e}")
+                print(f"⚠️ Emergency scene error: {e}")
             
             # Report results
-            if scene_count > 0:
+            if success_count > 0:
                 self.start_btn.configure(state='normal')
-                message = f"✅ Created {scene_count} OBS scenes successfully!"
-                if failed_sources > 0:
-                    message += f"\n⚠️ {failed_sources} sources failed - check OBS scenes panel"
-                messagebox.showinfo("Setup Complete", message)
-                self.status_var.set(f"OBS scenes created: {scene_count} success, {failed_sources} failed")
+                msg = f"🎉 SUCCESS!\n\n✅ {success_count} scenes created with sources!"
+                if failed_count > 0:
+                    msg += f"\n❌ {failed_count} scenes failed"
+                msg += f"\n\n📺 Check OBS - sources should now appear in scenes!"
+                messagebox.showinfo("Setup Complete", msg)
+                self.status_var.set(f"OBS setup: {success_count} working, {failed_count} failed")
             else:
-                messagebox.showerror("Setup Failed", "Could not create any scenes. Check OBS connection and file paths.")
+                messagebox.showerror("Setup Failed", "❌ Could not create any working scenes.\nCheck file paths and OBS connection.")
                 
         except Exception as e:
-            messagebox.showerror("Setup Failed", f"Failed to setup OBS scenes:\n{str(e)}")
+            messagebox.showerror("Setup Error", f"Critical setup failure:\n{str(e)}")
     
     def start_broadcast(self):
         """Start live broadcasting with custom start time"""
@@ -546,7 +556,7 @@ class PlaylistScheduler:
                 filename = current_video['filename'][:30] + "..." if len(current_video['filename']) > 30 else current_video['filename']
                 self.live_status_label.configure(text=f"🔴 NOW: {filename}")
     
-    # File management methods (keeping existing functionality)
+    # File management methods
     def get_video_duration(self, filepath):
         """Get video duration using ffprobe"""
         try:
@@ -631,7 +641,6 @@ class PlaylistScheduler:
         end_time_str = self.format_duration(current_time)
         self.status_var.set(f"Schedule: {self.start_time_var.get()} to {end_time_str} | Duration: {total_str} ({len(self.videos)} videos)")
     
-    # Include all other existing methods (copy_block, paste_block, etc.)...
     def on_drop(self, event):
         files = self.root.tk.splitlist(event.data)
         video_files = []
@@ -689,10 +698,10 @@ class PlaylistScheduler:
     def insert_video_above(self):
         selection = self.tree.selection()
         if not selection: return self.insert_video()
-        self.insert_at = self.tree.index(selection[0])
+        insert_at = self.tree.index(selection[0])
         filetypes = [("Video files", "*.mp4 *.avi *.mov *.mkv *.wmv *.flv *.webm"), ("All files", "*.*")]
         files = filedialog.askopenfilenames(title="Insert above", filetypes=filetypes)
-        if files: self.process_files(files, insert_at=self.insert_at)
+        if files: self.process_files(files, insert_at=insert_at)
     
     def insert_video_below(self):
         selection = self.tree.selection()
