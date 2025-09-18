@@ -252,6 +252,24 @@ class PlaylistScheduler:
                 "3. Port is set to 4455 (v5 default)\n" +
                 "4. Copy the password from OBS and update the code")
             self.disconnect_obs()
+    def disconnect_obs(self):
+        """Disconnect from OBS WebSocket"""
+        if hasattr(self, 'broadcasting') and self.broadcasting:
+            self.stop_broadcast()
+        
+        if self.obs_client:
+            try:
+                self.obs_client.disconnect()
+            except:
+                pass
+            self.obs_client = None
+        
+        self.connection_status.configure(text="● Disconnected", foreground="red")
+        self.connect_btn.configure(text="Connect to OBS", command=self.connect_obs)
+        self.setup_btn.configure(state='disabled')
+        self.start_btn.configure(state='disabled')
+        
+        self.status_var.set("Disconnected from OBS")
     
     def setup_obs_scenes(self):
         """FIXED: Create OBS scenes using v5 API correctly"""
@@ -647,6 +665,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
