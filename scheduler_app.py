@@ -25,6 +25,7 @@ class PlaylistScheduler:
         self.current_video_index = -1
         self.broadcast_start_time = None
         self.manual_time_offset = 0
+        self.schedule_start_time = "00:00:00"  # NEW: Custom start time
         
         self.setup_ui()
         self.setup_drag_drop()
@@ -52,67 +53,77 @@ class PlaylistScheduler:
         
         ttk.Separator(left_panel, orient='horizontal').grid(row=4, column=0, sticky=(tk.W, tk.E), pady=5)
         
-        # Edit operations
-        ttk.Label(left_panel, text="✏️ Playlist Editing", font=('Arial', 9, 'bold')).grid(row=5, column=0, pady=(0,5), sticky=tk.W)
-        ttk.Button(left_panel, text="Move Up", command=self.move_up).grid(row=6, column=0, pady=1, sticky=(tk.W, tk.E))
-        ttk.Button(left_panel, text="Move Down", command=self.move_down).grid(row=7, column=0, pady=1, sticky=(tk.W, tk.E))
-        ttk.Button(left_panel, text="Delete Selected", command=self.delete_selected).grid(row=8, column=0, pady=1, sticky=(tk.W, tk.E))
+        # NEW: Schedule Start Time
+        ttk.Label(left_panel, text="⏰ Schedule Settings", font=('Arial', 9, 'bold')).grid(row=5, column=0, pady=(0,5), sticky=tk.W)
         
-        ttk.Separator(left_panel, orient='horizontal').grid(row=9, column=0, sticky=(tk.W, tk.E), pady=5)
+        time_frame = ttk.Frame(left_panel)
+        time_frame.grid(row=6, column=0, sticky=(tk.W, tk.E), pady=2)
+        time_frame.columnconfigure(1, weight=1)
+        
+        ttk.Label(time_frame, text="Start Time:").grid(row=0, column=0, padx=(0,5))
+        self.start_time_var = tk.StringVar(value="00:00:00")
+        self.start_time_entry = ttk.Entry(time_frame, textvariable=self.start_time_var, width=10)
+        self.start_time_entry.grid(row=0, column=1, sticky=tk.W)
+        
+        ttk.Button(left_panel, text="⏰ Set Current Time", command=self.set_current_time).grid(row=7, column=0, pady=2, sticky=(tk.W, tk.E))
+        
+        ttk.Separator(left_panel, orient='horizontal').grid(row=8, column=0, sticky=(tk.W, tk.E), pady=5)
+        
+        # Edit operations
+        ttk.Label(left_panel, text="✏️ Playlist Editing", font=('Arial', 9, 'bold')).grid(row=9, column=0, pady=(0,5), sticky=tk.W)
+        ttk.Button(left_panel, text="Move Up", command=self.move_up).grid(row=10, column=0, pady=1, sticky=(tk.W, tk.E))
+        ttk.Button(left_panel, text="Move Down", command=self.move_down).grid(row=11, column=0, pady=1, sticky=(tk.W, tk.E))
+        ttk.Button(left_panel, text="Delete Selected", command=self.delete_selected).grid(row=12, column=0, pady=1, sticky=(tk.W, tk.E))
+        
+        ttk.Separator(left_panel, orient='horizontal').grid(row=13, column=0, sticky=(tk.W, tk.E), pady=5)
         
         # Block operations
-        ttk.Label(left_panel, text="📋 Block Operations", font=('Arial', 9, 'bold')).grid(row=10, column=0, pady=(0,5), sticky=tk.W)
-        ttk.Button(left_panel, text="Copy Block", command=self.copy_block).grid(row=11, column=0, pady=1, sticky=(tk.W, tk.E))
-        ttk.Button(left_panel, text="Paste Block", command=self.paste_block).grid(row=12, column=0, pady=1, sticky=(tk.W, tk.E))
-        ttk.Button(left_panel, text="Clear All", command=self.clear_all).grid(row=13, column=0, pady=1, sticky=(tk.W, tk.E))
+        ttk.Label(left_panel, text="📋 Block Operations", font=('Arial', 9, 'bold')).grid(row=14, column=0, pady=(0,5), sticky=tk.W)
+        ttk.Button(left_panel, text="Copy Block", command=self.copy_block).grid(row=15, column=0, pady=1, sticky=(tk.W, tk.E))
+        ttk.Button(left_panel, text="Paste Block", command=self.paste_block).grid(row=16, column=0, pady=1, sticky=(tk.W, tk.E))
+        ttk.Button(left_panel, text="Clear All", command=self.clear_all).grid(row=17, column=0, pady=1, sticky=(tk.W, tk.E))
         
-        ttk.Separator(left_panel, orient='horizontal').grid(row=14, column=0, sticky=(tk.W, tk.E), pady=5)
+        ttk.Separator(left_panel, orient='horizontal').grid(row=18, column=0, sticky=(tk.W, tk.E), pady=5)
         
         # OBS Connection
-        ttk.Label(left_panel, text="🔗 OBS Connection", font=('Arial', 9, 'bold')).grid(row=15, column=0, pady=(0,5), sticky=tk.W)
+        ttk.Label(left_panel, text="🔗 OBS Connection", font=('Arial', 9, 'bold')).grid(row=19, column=0, pady=(0,5), sticky=tk.W)
         
-        # Connection frame
-        conn_frame = ttk.Frame(left_panel)
-        conn_frame.grid(row=16, column=0, sticky=(tk.W, tk.E), pady=2)
-        conn_frame.columnconfigure(0, weight=1)
-        
-        self.connect_btn = ttk.Button(conn_frame, text="Connect to OBS", command=self.connect_obs)
-        self.connect_btn.grid(row=0, column=0, sticky=(tk.W, tk.E))
+        self.connect_btn = ttk.Button(left_panel, text="Connect to OBS", command=self.connect_obs)
+        self.connect_btn.grid(row=20, column=0, pady=2, sticky=(tk.W, tk.E))
         
         self.connection_status = ttk.Label(left_panel, text="● Disconnected", foreground="red", font=('Arial', 8))
-        self.connection_status.grid(row=17, column=0, sticky=tk.W)
+        self.connection_status.grid(row=21, column=0, sticky=tk.W)
         
-        # Setup and broadcast controls
         self.setup_btn = ttk.Button(left_panel, text="🎬 Setup OBS Scenes", command=self.setup_obs_scenes)
-        self.setup_btn.grid(row=18, column=0, pady=2, sticky=(tk.W, tk.E))
+        self.setup_btn.grid(row=22, column=0, pady=2, sticky=(tk.W, tk.E))
         self.setup_btn.configure(state='disabled')
         
-        ttk.Separator(left_panel, orient='horizontal').grid(row=19, column=0, sticky=(tk.W, tk.E), pady=5)
+        ttk.Separator(left_panel, orient='horizontal').grid(row=23, column=0, sticky=(tk.W, tk.E), pady=5)
         
         # Live broadcast controls
-        ttk.Label(left_panel, text="🔴 Live Broadcast", font=('Arial', 9, 'bold')).grid(row=20, column=0, pady=(0,5), sticky=tk.W)
+        ttk.Label(left_panel, text="🔴 Live Broadcast", font=('Arial', 9, 'bold')).grid(row=24, column=0, pady=(0,5), sticky=tk.W)
         
         self.start_btn = ttk.Button(left_panel, text="▶ Start Broadcasting", command=self.start_broadcast)
-        self.start_btn.grid(row=21, column=0, pady=2, sticky=(tk.W, tk.E))
+        self.start_btn.grid(row=25, column=0, pady=2, sticky=(tk.W, tk.E))
         self.start_btn.configure(state='disabled')
         
         self.stop_btn = ttk.Button(left_panel, text="⏹ Stop Broadcasting", command=self.stop_broadcast)
-        self.stop_btn.grid(row=22, column=0, pady=2, sticky=(tk.W, tk.E))
+        self.stop_btn.grid(row=26, column=0, pady=2, sticky=(tk.W, tk.E))
         self.stop_btn.configure(state='disabled')
         
         # Manual controls
         self.skip_btn = ttk.Button(left_panel, text="⏭ Skip to Next", command=self.skip_to_next)
-        self.skip_btn.grid(row=23, column=0, pady=1, sticky=(tk.W, tk.E))
+        self.skip_btn.grid(row=27, column=0, pady=1, sticky=(tk.W, tk.E))
         self.skip_btn.configure(state='disabled')
         
         self.emergency_btn = ttk.Button(left_panel, text="🚨 Emergency Scene", command=self.emergency_scene)
-        self.emergency_btn.grid(row=24, column=0, pady=1, sticky=(tk.W, tk.E))
+        self.emergency_btn.grid(row=28, column=0, pady=1, sticky=(tk.W, tk.E))
         self.emergency_btn.configure(state='disabled')
         
-        ttk.Separator(left_panel, orient='horizontal').grid(row=25, column=0, sticky=(tk.W, tk.E), pady=5)
+        ttk.Separator(left_panel, orient='horizontal').grid(row=29, column=0, sticky=(tk.W, tk.E), pady=5)
         
         # Export
-        ttk.Button(left_panel, text="💾 Export Playlist", command=self.export_playlist).grid(row=26, column=0, pady=5, sticky=(tk.W, tk.E))
+        ttk.Button(left_panel, text="💾 Export Playlist", command=self.export_playlist).grid(row=30, column=0, pady=5, sticky=(tk.W, tk.E))
         
         # Configure left panel column
         left_panel.columnconfigure(0, weight=1)
@@ -176,12 +187,27 @@ class PlaylistScheduler:
         
         # Status bar
         self.status_var = tk.StringVar()
-        self.status_var.set("Ready - Connect to OBS to begin live broadcast automation")
+        self.status_var.set("Ready - Set start time and connect to OBS for live automation")
         status_bar = ttk.Label(main_frame, textvariable=self.status_var, relief=tk.SUNKEN, anchor=tk.W)
         status_bar.grid(row=2, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=(10,0))
         
         # Start UI update loop
         self.update_ui_loop()
+    
+    def set_current_time(self):
+        """Set start time to current system time"""
+        current_time = datetime.now().strftime("%H:%M:%S")
+        self.start_time_var.set(current_time)
+        self.update_timeline()
+        self.status_var.set(f"Schedule start time set to {current_time}")
+    
+    def time_to_seconds(self, time_str):
+        """Convert HH:MM:SS to seconds"""
+        try:
+            h, m, s = map(int, time_str.split(':'))
+            return h * 3600 + m * 60 + s
+        except:
+            return 0
     
     def setup_drag_drop(self):
         """Setup drag and drop functionality"""
@@ -218,7 +244,7 @@ class PlaylistScheduler:
                 except:
                     pass
             
-            # Connect to OBS WebSocket v5 (you set port to 4444)
+            # Connect to OBS WebSocket v5 (port 4444 as you set)
             self.obs_client = obs.ReqClient(host='localhost', port=4444, password='', timeout=3)
             
             # Test connection
@@ -260,75 +286,131 @@ class PlaylistScheduler:
         self.status_var.set("Disconnected from OBS")
     
     def setup_obs_scenes(self):
-        """Create OBS scenes for each video"""
+        """FIXED: Create OBS scenes with properly configured media sources"""
         if not self.obs_client or not self.videos:
             messagebox.showwarning("Setup Error", "Connect to OBS and add videos first.")
             return
         
         try:
             scene_count = 0
+            failed_sources = 0
+            
             for i, video in enumerate(self.videos):
                 scene_name = f"Video_{i+1:03d}_{os.path.splitext(video['filename'])[0][:15]}"
                 
-                # Create scene
+                # Create scene first
                 try:
                     self.obs_client.create_scene(scene_name)
-                except:
-                    pass  # Scene might exist
+                    print(f"Created scene: {scene_name}")
+                except Exception as e:
+                    print(f"Scene {scene_name} might already exist: {e}")
                 
-                # Add media source
+                # FIXED: Create media source with correct method
                 source_name = f"Media_{i+1:03d}"
                 try:
+                    # Convert path format for OBS
+                    file_path = os.path.abspath(video['filepath']).replace('\\', '/')
+                    
+                    # Create the input (media source)
+                    input_settings = {
+                        'local_file': file_path,
+                        'is_local_file': True,
+                        'looping': False,
+                        'restart_on_activate': True,
+                        'clear_on_media_end': True,
+                        'close_when_inactive': False,
+                        'speed_percent': 100,
+                        'hardware_decode': False,  # Disable hardware decode
+                        'color_range': 0,
+                        'linear_alpha': False
+                    }
+                    
+                    # Create the input
                     self.obs_client.create_input(
                         scene_name=scene_name,
                         input_name=source_name,
                         input_kind='ffmpeg_source',
-                        input_settings={
-                            'local_file': video['filepath'].replace('\\', '/'),
-                            'looping': False,
-                            'restart_on_activate': True,
-                            'clear_on_media_end': False
-                        }
+                        input_settings=input_settings
                     )
+                    
+                    print(f"✅ Created media source: {source_name} with file: {file_path}")
+                    scene_count += 1
+                    
                 except Exception as e:
-                    print(f"Error creating source {source_name}: {e}")
-                
-                scene_count += 1
+                    print(f"❌ Error creating source {source_name}: {e}")
+                    failed_sources += 1
+                    
+                    # Try alternative method with SetInputSettings
+                    try:
+                        # First create empty media source
+                        self.obs_client.create_input(
+                            scene_name=scene_name,
+                            input_name=source_name,
+                            input_kind='ffmpeg_source',
+                            input_settings={}
+                        )
+                        
+                        # Then set the file path
+                        self.obs_client.set_input_settings(
+                            input_name=source_name,
+                            input_settings={'local_file': file_path, 'is_local_file': True},
+                            overlay=True
+                        )
+                        
+                        print(f"✅ Alternative method worked for: {source_name}")
+                        scene_count += 1
+                        failed_sources -= 1
+                        
+                    except Exception as e2:
+                        print(f"❌ Alternative method also failed for {source_name}: {e2}")
             
             # Create emergency scene
             try:
                 self.obs_client.create_scene("Emergency_Scene")
+                
+                text_settings = {
+                    'text': 'TECHNICAL DIFFICULTIES\n\nPLEASE STAND BY',
+                    'font': {'face': 'Arial', 'size': 72, 'style': 'Bold'},
+                    'color': 4294967295,  # White
+                    'align': 'center',
+                    'valign': 'center'
+                }
+                
                 self.obs_client.create_input(
                     scene_name="Emergency_Scene",
                     input_name="Emergency_Text",
                     input_kind='text_gdiplus_v2',
-                    input_settings={
-                        'text': 'TECHNICAL DIFFICULTIES\n\nPLEASE STAND BY',
-                        'font': {'face': 'Arial', 'size': 72, 'style': 'Bold'},
-                        'color': 4294967295,  # White
-                        'align': 'center',
-                        'valign': 'center'
-                    }
+                    input_settings=text_settings
                 )
             except Exception as e:
                 print(f"Emergency scene error: {e}")
             
-            self.start_btn.configure(state='normal')
-            messagebox.showinfo("Success", f"✅ Created {scene_count} OBS scenes!\n\nReady for live broadcasting.")
-            self.status_var.set("OBS scenes created - Ready for automated broadcasting")
-            
+            # Report results
+            if scene_count > 0:
+                self.start_btn.configure(state='normal')
+                message = f"✅ Created {scene_count} OBS scenes successfully!"
+                if failed_sources > 0:
+                    message += f"\n⚠️ {failed_sources} sources failed - check OBS scenes panel"
+                messagebox.showinfo("Setup Complete", message)
+                self.status_var.set(f"OBS scenes created: {scene_count} success, {failed_sources} failed")
+            else:
+                messagebox.showerror("Setup Failed", "Could not create any scenes. Check OBS connection and file paths.")
+                
         except Exception as e:
             messagebox.showerror("Setup Failed", f"Failed to setup OBS scenes:\n{str(e)}")
     
     def start_broadcast(self):
-        """Start live broadcasting with time-based control"""
+        """Start live broadcasting with custom start time"""
         if not self.obs_client or not self.videos:
             messagebox.showwarning("Broadcast Error", "Connect to OBS and setup scenes first.")
             return
         
         self.broadcasting = True
         self.broadcast_start_time = time.time()
-        self.manual_time_offset = 0
+        
+        # Calculate offset based on custom start time
+        start_seconds = self.time_to_seconds(self.start_time_var.get())
+        self.manual_time_offset = start_seconds
         self.current_video_index = -1
         
         # Start broadcast control thread
@@ -342,7 +424,7 @@ class PlaylistScheduler:
         self.emergency_btn.configure(state='normal')
         
         self.live_status_label.configure(text="🔴 BROADCASTING LIVE", foreground="red")
-        self.status_var.set("🔴 Live broadcast active - Automatic scene switching enabled")
+        self.status_var.set(f"🔴 Live broadcast started from {self.start_time_var.get()}")
     
     def stop_broadcast(self):
         """Stop live broadcasting"""
@@ -363,7 +445,7 @@ class PlaylistScheduler:
         self.status_var.set("Broadcast stopped - Ready to start again")
     
     def broadcast_controller(self):
-        """Main broadcast loop - handles precise timing"""
+        """Main broadcast loop with custom start time support"""
         while self.broadcasting:
             try:
                 current_time = time.time()
@@ -403,9 +485,9 @@ class PlaylistScheduler:
             if 0 <= video_index < len(self.videos):
                 scene_name = f"Video_{video_index+1:03d}_{os.path.splitext(self.videos[video_index]['filename'])[0][:15]}"
                 self.obs_client.set_current_program_scene(scene_name)
-                print(f"Switched to: {scene_name}")
+                print(f"✅ Switched to: {scene_name}")
         except Exception as e:
-            print(f"Error switching scene: {e}")
+            print(f"❌ Error switching scene: {e}")
     
     def skip_to_next(self):
         """Skip to next video in schedule"""
@@ -464,8 +546,7 @@ class PlaylistScheduler:
                 filename = current_video['filename'][:30] + "..." if len(current_video['filename']) > 30 else current_video['filename']
                 self.live_status_label.configure(text=f"🔴 NOW: {filename}")
     
-    # [Include all the file management methods from v1.1]
-    
+    # File management methods (keeping existing functionality)
     def get_video_duration(self, filepath):
         """Get video duration using ffprobe"""
         try:
@@ -527,10 +608,14 @@ class PlaylistScheduler:
         self.status_var.set(f"Added {len(files)} videos")
     
     def update_timeline(self):
+        """Update timeline with custom start time"""
         for item in self.tree.get_children():
             self.tree.delete(item)
         
-        current_time = 0
+        # Start from custom start time
+        start_seconds = self.time_to_seconds(self.start_time_var.get())
+        current_time = start_seconds
+        
         for i, video in enumerate(self.videos):
             start_time = self.format_duration(current_time)
             end_time = self.format_duration(current_time + video['duration'])
@@ -541,9 +626,12 @@ class PlaylistScheduler:
             self.tree.insert('', 'end', values=(status, video['filename'], duration_str, start_time, end_time))
             current_time += video['duration']
         
-        total = self.format_duration(current_time)
-        self.status_var.set(f"Total: {total} ({len(self.videos)} videos)")
+        total_duration = current_time - start_seconds
+        total_str = self.format_duration(total_duration)
+        end_time_str = self.format_duration(current_time)
+        self.status_var.set(f"Schedule: {self.start_time_var.get()} to {end_time_str} | Duration: {total_str} ({len(self.videos)} videos)")
     
+    # Include all other existing methods (copy_block, paste_block, etc.)...
     def on_drop(self, event):
         files = self.root.tk.splitlist(event.data)
         video_files = []
@@ -567,7 +655,6 @@ class PlaylistScheduler:
             info = f"File: {video['filename']}\nPath: {video['filepath']}\nDuration: {self.format_duration(video['duration'])}"
             messagebox.showinfo("Video Info", info)
     
-    # Add remaining methods for editing operations...
     def get_selected_indices(self):
         return [self.tree.index(item) for item in self.tree.selection()]
     
@@ -636,8 +723,9 @@ class PlaylistScheduler:
         filepath = filedialog.asksaveasfilename(title="Export schedule", defaultextension=".json", 
                                               filetypes=[("Schedule", "*.json"), ("All", "*.*")])
         if filepath:
-            schedule = {"videos": [], "total_duration": sum(v['duration'] for v in self.videos)}
-            current_time = 0
+            start_seconds = self.time_to_seconds(self.start_time_var.get())
+            schedule = {"videos": [], "start_time": self.start_time_var.get(), "total_duration": sum(v['duration'] for v in self.videos)}
+            current_time = start_seconds
             for i, video in enumerate(self.videos):
                 schedule["videos"].append({
                     'index': i,
