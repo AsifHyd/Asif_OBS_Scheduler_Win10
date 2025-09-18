@@ -286,142 +286,119 @@ class PlaylistScheduler:
         self.status_var.set("Disconnected from OBS")
     
     def setup_obs_scenes(self):
-    """FIXED: Create OBS scenes with properly populated sources"""
-    if not self.obs_client or not self.videos:
-        messagebox.showwarning("Setup Error", "Connect to OBS and add videos first.")
-        return
-    
-    try:
-        success_count = 0
-        failed_count = 0
-        
-        for i, video in enumerate(self.videos):
-            scene_name = f"Video_{i+1:03d}"  # Simplified naming
-            source_name = f"Media_{i+1:03d}"
-            
-            try:
-                print(f"Creating scene: {scene_name}")
-                
-                # Step 1: Create scene
-                self.obs_client.create_scene(scene_name)
-                
-                # Step 2: Prepare file path
-                file_path = os.path.abspath(video['filepath'])
-                print(f"Using file path: {file_path}")
-                
-                # Check if file exists
-                if not os.path.exists(file_path):
-                    print(f"❌ File not found: {file_path}")
-                    failed_count += 1
-                    continue
-                
-                # Step 3: Create media input with minimal settings
-                input_settings = {
-                    'local_file': file_path,
-                    'is_local_file': True,
-                    'looping': False,
-                    'restart_on_activate': True
-                }
-                
-                self.obs_client.create_input(
-                    input_name=source_name,
-                    input_kind='ffmpeg_source',
-                    input_settings=input_settings
-                )
-                print(f"✅ Created input: {source_name}")
-                
-                # Step 4: Add to scene (THIS IS THE KEY FIX!)
-                self.obs_client.create_scene_item(
-                    scene_name=scene_name,
-                    source_name=source_name
-                )
-                print(f"✅ Added to scene: {scene_name}")
-                
-                success_count += 1
-                
-            except Exception as e:
-                print(f"❌ Failed to create {scene_name}: {e}")
-                failed_count += 1
-        
-        # Create emergency scene
-        try:
-            self.obs_client.create_scene("Emergency_Scene")
-            self.obs_client.create_input(
-                input_name="Emergency_Text",
-                input_kind="text_gdiplus_v2",
-                input_settings={
-                    "text": "TECHNICAL DIFFICULTIES\n\nPLEASE STAND BY",
-                    "font": {"face": "Arial", "size": 72, "style": "Bold"},
-                    "color": 4294967295,
-                    "align": "center",
-                    "valign": "center"
-                }
-            )
-            self.obs_client.create_scene_item("Emergency_Scene", "Emergency_Text")
-            print("✅ Emergency scene created")
-        except Exception as e:
-            print(f"⚠️ Emergency scene error: {e}")
-        
-        # Report results
-        if success_count > 0:
-            self.start_btn.configure(state='normal')
-            msg = f"🎉 SUCCESS!\n\n✅ {success_count} scenes created with sources!"
-            if failed_count > 0:
-                msg += f"\n❌ {failed_count} scenes failed"
-            msg += f"\n\n📺 Check OBS - sources should now appear in scenes!"
-            messagebox.showinfo("Setup Complete", msg)
-            self.status_var.set(f"OBS setup: {success_count} working, {failed_count} failed")
-        else:
-            messagebox.showerror("Setup Failed", "❌ Could not create any working scenes.\nCheck console output for detailed errors.")
-            
-    except Exception as e:
-        messagebox.showerror("Setup Error", f"Critical setup failure:\n{str(e)}")
-   
-    def start_broadcast(self):
-        """Start live broadcasting with custom start time"""
+        """FIXED: Create OBS scenes with properly populated sources"""
         if not self.obs_client or not self.videos:
-            messagebox.showwarning("Broadcast Error", "Connect to OBS and setup scenes first.")
+            messagebox.showwarning("Setup Error", "Connect to OBS and add videos first.")
             return
         
-        self.broadcasting = True
-        self.broadcast_start_time = time.time()
-        
-        # Calculate offset based on custom start time
-        start_seconds = self.time_to_seconds(self.start_time_var.get())
-        self.manual_time_offset = start_seconds
-        self.current_video_index = -1
-        
-        # Start broadcast control thread
-        self.broadcast_thread = threading.Thread(target=self.broadcast_controller, daemon=True)
-        self.broadcast_thread.start()
-        
-        # Update UI
-        self.start_btn.configure(state='disabled')
-        self.stop_btn.configure(state='normal')
-        self.skip_btn.configure(state='normal')
-        self.emergency_btn.configure(state='normal')
-        
-        self.live_status_label.configure(text="🔴 BROADCASTING LIVE", foreground="red")
-        self.status_var.set(f"🔴 Live broadcast started from {self.start_time_var.get()}")
-    
-    def stop_broadcast(self):
-        """Stop live broadcasting"""
-        self.broadcasting = False
-        
-        if self.broadcast_thread:
-            self.broadcast_thread.join(timeout=1)
-        
-        # Update UI
-        self.start_btn.configure(state='normal')
-        self.stop_btn.configure(state='disabled')
-        self.skip_btn.configure(state='disabled')
-        self.emergency_btn.configure(state='disabled')
-        
-        self.live_status_label.configure(text="Broadcast Stopped", foreground="black")
-        self.current_video_index = -1
-        self.update_timeline()
-        self.status_var.set("Broadcast stopped - Ready to start again")
-    
+        try:
+            success_count = 0
+            failed_count = 0
+            
+            for i, video in enumerate(self.videos):
+                scene_name = f"Video_{i+1:03d}_{os.path.splitext(video['filename'])[0][:15]}"
+                source_name = f"Media_{i+1:03d}"
+                
+                try:
+                    # Create scene
+                    self.obs_client.create_scene(scene_name)
+                    print(f"Created scene: {scene_name}")
+                except Exception as e:
+                    print(f"Scene {scene_name} might exist: {e}")
+                
+                try:
+                    # Prepare file path
+                    file_path = os.path.abspath(video['filepath']).replace('\\', '/')
+                    
+                    input_settings = {
+                        'local_file': file_path,
+                        'is_local_file': True,
+                        'looping': False,
+                        'restart_on_activate': True,
+                        'clear_on_media_end': False,
+                        'close_when_inactive': False,
+                        'speed_percent': 100,
+                        'hardware_decode': False
+                    }
+                    
+                    # Step 1: Create input
+                    self.obs_client.create_input(
+                        input_name=source_name,
+                        input_kind='ffmpeg_source',
+                        input_settings=input_settings
+                    )
+                    print(f"✅ Created input: {source_name}")
+                    
+                    # Step 2: Add input to scene (KEY FIX!)
+                    self.obs_client.create_scene_item(
+                        scene_name=scene_name,
+                        source_name=source_name
+                    )
+                    print(f"✅ Added to scene: {scene_name}")
+                    
+                    # Step 3: Set input settings
+                    self.obs_client.set_input_settings(
+                        input_name=source_name,
+                        input_settings=input_settings
+                    )
+                    print(f"✅ Set settings for: {source_name}")
+                    
+                    success_count += 1
+                    
+                except Exception as e:
+                    print(f"❌ Failed to create {scene_name}: {e}")
+                    failed_count += 1
+                    
+                    # Try fallback method
+                    try:
+                        self.obs_client.create_input(
+                            input_name=source_name,
+                            input_kind='ffmpeg_source',
+                            input_settings={'local_file': file_path, 'is_local_file': True}
+                        )
+                        self.obs_client.create_scene_item(
+                            scene_name=scene_name,
+                            source_name=source_name
+                        )
+                        print(f"✅ Fallback worked for: {scene_name}")
+                        success_count += 1
+                        failed_count -= 1
+                    except Exception as e2:
+                        print(f"❌ Fallback failed for {scene_name}: {e2}")
+            
+            # Create emergency scene
+            try:
+                self.obs_client.create_scene("Emergency_Scene")
+                self.obs_client.create_input(
+                    input_name="Emergency_Text",
+                    input_kind="text_gdiplus_v2",
+                    input_settings={
+                        "text": "TECHNICAL DIFFICULTIES\n\nPLEASE STAND BY",
+                        "font": {"face": "Arial", "size": 72, "style": "Bold"},
+                        "color": 4294967295,
+                        "align": "center",
+                        "valign": "center"
+                    }
+                )
+                self.obs_client.create_scene_item("Emergency_Scene", "Emergency_Text")
+                print("✅ Emergency scene created")
+            except Exception as e:
+                print(f"⚠️ Emergency scene error: {e}")
+            
+            # Report results
+            if success_count > 0:
+                self.start_btn.configure(state='normal')
+                msg = f"🎉 SUCCESS!\n\n✅ {success_count} scenes created with sources!"
+                if failed_count > 0:
+                    msg += f"\n❌ {failed_count} scenes failed"
+                msg += f"\n\n📺 Check OBS - sources should now appear!"
+                messagebox.showinfo("Setup Complete", msg)
+                self.status_var.set(f"Scenes: {success_count} working, {failed_count} failed")
+            else:
+                messagebox.showerror("Setup Failed", "❌ No working scenes created.\nCheck console for errors.")
+                
+        except Exception as e:
+            messagebox.showerror("Setup Error", f"Critical error:\n{str(e)}")
     def broadcast_controller(self):
         """Main broadcast loop with custom start time support"""
         while self.broadcasting:
@@ -736,4 +713,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
