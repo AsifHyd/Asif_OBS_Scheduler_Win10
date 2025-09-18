@@ -218,140 +218,126 @@ class PlaylistScheduler:
         self.root.after(1000, self.update_ui_loop)
     
     def connect_obs(self):
-        """Connect to OBS WebSocket server"""
-        try:
-            if self.obs_client:
-                try:
-                    self.obs_client.disconnect()
-                except:
-                    pass
-            
-            self.obs_client = obs.ReqClient(host='localhost', port=4444, password='', timeout=3)
-            version_info = self.obs_client.get_version()
-            
-            self.connection_status.configure(text="● Connected", foreground="green")
-            self.connect_btn.configure(text="Disconnect", command=self.disconnect_obs)
-            self.setup_btn.configure(state='normal')
-            
-            self.status_var.set(f"Connected to OBS {version_info.obs_version}")
-            
-        except Exception as e:
-            messagebox.showerror("Connection Failed", 
-                f"Could not connect to OBS WebSocket:\n\n{str(e)}\n\n" +
-                "Please verify:\n" +
-                "1. OBS is running\n" +
-                "2. Tools → WebSocket Server Settings → Enable WebSocket server\n" +
-                "3. Port is set to 4444")
-            self.disconnect_obs()
-    
-    def disconnect_obs(self):
-        """Disconnect from OBS"""
-        if self.broadcasting:
-            self.stop_broadcast()
-        
+    """Connect to OBS WebSocket v5 server with correct settings"""
+    try:
         if self.obs_client:
             try:
                 self.obs_client.disconnect()
             except:
                 pass
-            self.obs_client = None
         
-        self.connection_status.configure(text="● Disconnected", foreground="red")
-        self.connect_btn.configure(text="Connect to OBS", command=self.connect_obs)
-        self.setup_btn.configure(state='disabled')
-        self.start_btn.configure(state='disabled')
+        # FIXED: Connect to v5 defaults (port 4455 with password)
+        self.obs_client = obs.ReqClient(
+            host='127.0.0.1', 
+            port=4455,                    # Changed from 4444
+            password='your-obs-password', # Add your actual OBS password
+            timeout=3
+        )
         
-        self.status_var.set("Disconnected from OBS")
+        # Test connection with v5 method name
+        version_info = self.obs_client.get_version()
+        
+        self.connection_status.configure(text="● Connected", foreground="green")
+        self.connect_btn.configure(text="Disconnect", command=self.disconnect_obs)
+        self.setup_btn.configure(state='normal')
+        
+        self.status_var.set(f"Connected to OBS {version_info.obs_version}")
+        
+    except Exception as e:
+        messagebox.showerror("Connection Failed", 
+            f"Could not connect to OBS WebSocket v5:\n\n{str(e)}\n\n" +
+            "Please verify:\n" +
+            "1. OBS is running\n" +
+            "2. Tools → WebSocket Server Settings → Enable WebSocket server\n" +
+            "3. Port is set to 4455 (v5 default)\n" +
+            "4. Copy the password from OBS and update the code")
+        self.disconnect_obs()
+
+def setup_obs_scenes(self):
+    """FIXED: Create OBS scenes using v5 API correctly"""
+    if not self.obs_client or not self.videos:
+        messagebox.showwarning("Setup Error", "Connect to OBS and add videos first.")
+        return
     
-    def setup_obs_scenes(self):
-        """FIXED: Create OBS scenes with properly populated sources"""
-        if not self.obs_client or not self.videos:
-            messagebox.showwarning("Setup Error", "Connect to OBS and add videos first.")
-            return
+    try:
+        success_count = 0
+        failed_count = 0
         
-        try:
-            success_count = 0
-            failed_count = 0
+        for i, video in enumerate(self.videos):
+            scene_name = f"Video_{i+1:03d}_{os.path.splitext(video['filename'])[0][:15]}"
+            source_name = f"Media_{i+1:03d}"
             
-            for i, video in enumerate(self.videos):
-                scene_name = f"Video_{i+1:03d}_{os.path.splitext(video['filename'])[0][:15]}"
-                source_name = f"Media_{i+1:03d}"
-                
-                try:
-                    # Create scene
-                    self.obs_client.create_scene(scene_name)
-                    print(f"✅ Created scene: {scene_name}")
-                except Exception as e:
-                    print(f"Scene {scene_name} might exist: {e}")
-                
-                try:
-                    # Prepare file path
-                    file_path = os.path.abspath(video['filepath']).replace('\\', '/')
-                    
-                    input_settings = {
-                        'local_file': file_path,
-                        'is_local_file': True,
-                        'looping': False,
-                        'restart_on_activate': True,
-                        'clear_on_media_end': False,
-                        'close_when_inactive': False,
-                        'hardware_decode': False
-                    }
-                    
-                    # Step 1: Create input
-                    self.obs_client.create_input(
-                        input_name=source_name,
-                        input_kind='ffmpeg_source',
-                        input_settings=input_settings
-                    )
-                    print(f"✅ Created input: {source_name}")
-                    
-                    # Step 2: Add input to scene (KEY FIX!)
-                    self.obs_client.create_scene_item(
-                        scene_name=scene_name,
-                        source_name=source_name
-                    )
-                    print(f"✅ Added to scene: {scene_name}")
-                    
-                    success_count += 1
-                    
-                except Exception as e:
-                    print(f"❌ Failed to create {scene_name}: {e}")
-                    failed_count += 1
-            
-            # Create emergency scene
             try:
-                self.obs_client.create_scene("Emergency_Scene")
-                self.obs_client.create_input(
-                    input_name="Emergency_Text",
-                    input_kind="text_gdiplus_v2",
-                    input_settings={
-                        "text": "TECHNICAL DIFFICULTIES\n\nPLEASE STAND BY",
-                        "font": {"face": "Arial", "size": 72, "style": "Bold"},
-                        "color": 4294967295,
-                        "align": "center",
-                        "valign": "center"
-                    }
-                )
-                self.obs_client.create_scene_item("Emergency_Scene", "Emergency_Text")
-                print("✅ Emergency scene created")
-            except Exception as e:
-                print(f"⚠️ Emergency scene error: {e}")
-            
-            # Report results
-            if success_count > 0:
-                self.start_btn.configure(state='normal')
-                msg = f"🎉 SUCCESS!\n\n✅ {success_count} scenes created with sources!"
-                if failed_count > 0:
-                    msg += f"\n❌ {failed_count} scenes failed"
-                msg += f"\n\n📺 Check OBS - sources should now appear!"
-                messagebox.showinfo("Setup Complete", msg)
-                self.status_var.set(f"Scenes: {success_count} working, {failed_count} failed")
-            else:
-                messagebox.showerror("Setup Failed", "❌ No working scenes created.\nCheck console for errors.")
+                # Step 1: Create scene
+                self.obs_client.create_scene(scene_name)
+                print(f"✅ Created scene: {scene_name}")
                 
+                # Step 2: Prepare file path
+                file_path = os.path.abspath(video['filepath']).replace('\\', '/')
+                
+                input_settings = {
+                    'local_file': file_path,
+                    'is_local_file': True,
+                    'looping': False,
+                    'restart_on_activate': True,
+                    'clear_on_media_end': False,
+                    'close_when_inactive': False,
+                    'hardware_decode': False
+                }
+                
+                # FIXED: CreateInput with sceneName creates AND attaches input
+                self.obs_client.create_input(
+                    scene_name=scene_name,        # KEY FIX: Provide target scene
+                    input_name=source_name,
+                    input_kind='ffmpeg_source',
+                    input_settings=input_settings,
+                    scene_item_enabled=True       # Ensure scene item starts enabled
+                )
+                print(f"✅ Created and attached input: {source_name} to scene: {scene_name}")
+                
+                # NOTE: CreateSceneItem is NOT needed when sceneName is provided to CreateInput
+                
+                success_count += 1
+                
+            except Exception as e:
+                print(f"❌ Failed to create {scene_name}: {e}")
+                failed_count += 1
+        
+        # Create emergency scene
+        try:
+            self.obs_client.create_scene("Emergency_Scene")
+            self.obs_client.create_input(
+                scene_name="Emergency_Scene",
+                input_name="Emergency_Text",
+                input_kind="text_gdiplus_v2",
+                input_settings={
+                    "text": "TECHNICAL DIFFICULTIES\n\nPLEASE STAND BY",
+                    "font": {"face": "Arial", "size": 72, "style": "Bold"},
+                    "color": 4294967295,
+                    "align": "center",
+                    "valign": "center"
+                },
+                scene_item_enabled=True
+            )
+            print("✅ Emergency scene created")
         except Exception as e:
-            messagebox.showerror("Setup Error", f"Critical error:\n{str(e)}")
+            print(f"⚠️ Emergency scene error: {e}")
+        
+        # Report results
+        if success_count > 0:
+            self.start_btn.configure(state='normal')
+            msg = f"🎉 SUCCESS!\n\n✅ {success_count} scenes created with working sources!"
+            if failed_count > 0:
+                msg += f"\n❌ {failed_count} scenes failed"
+            msg += f"\n\n📺 Sources should now appear in OBS scenes!"
+            messagebox.showinfo("Setup Complete", msg)
+            self.status_var.set(f"OBS setup: {success_count} working, {failed_count} failed")
+        else:
+            messagebox.showerror("Setup Failed", "❌ No working scenes created.")
+            
+    except Exception as e:
+        messagebox.showerror("Setup Error", f"Critical error:\n{str(e)}")
+
     
     def start_broadcast(self):
         """Start live broadcasting with custom start time"""
@@ -661,3 +647,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
