@@ -48,7 +48,7 @@ def test_obs_step_by_step():
         
         print("\n🎥 Step 5: Testing video file...")
         # UPDATE THIS PATH to a real video file on your system
-        test_video_path = r"C:\path\to\your\video.mp4"  # <-- CHANGE THIS!
+        test_video_path = r"F:\Bulletin02 Test Final.mp4"  # <-- CHANGE THIS!
         
         if os.path.exists(test_video_path):
             try:
