@@ -1,4 +1,4 @@
-name: Build Windows EXE v1.1
+name: Build OBS Scheduler v1.2 - FULL WebSocket Integration
 
 on:
   push:
@@ -21,7 +21,12 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install pyinstaller tkinterdnd2
+        pip install pyinstaller tkinterdnd2 obsws-python websockets
+        pip list
+    
+    - name: Verify obsws-python installation
+      run: |
+        python -c "import obsws_python; print('obsws-python installed successfully')"
     
     - name: Download FFmpeg
       run: |
@@ -29,16 +34,20 @@ jobs:
         Expand-Archive -Path "ffmpeg.zip" -DestinationPath "."
         Copy-Item "ffmpeg-master-latest-win64-gpl/bin/ffprobe.exe" -Destination "."
         
-    - name: Build EXE
+    - name: Build EXE with WebSocket Support
       run: |
-        pyinstaller --onedir --windowed --add-binary "ffprobe.exe;." --name "PlaylistScheduler-v1.1" scheduler_app.py
+        pyinstaller --onedir --windowed --add-binary "ffprobe.exe;." --hidden-import obsws_python --hidden-import websockets --name "OBS-Scheduler-v1.2-FULL" scheduler_app.py
+        
+    - name: Verify EXE contents
+      run: |
+        dir dist\OBS-Scheduler-v1.2-FULL
         
     - name: Create release package
       run: |
-        Compress-Archive -Path "dist/PlaylistScheduler-v1.1/*" -DestinationPath "PlaylistScheduler-v1.1-Windows.zip"
+        Compress-Archive -Path "dist/OBS-Scheduler-v1.2-FULL/*" -DestinationPath "OBS-Scheduler-v1.2-FULL-Windows.zip"
         
     - name: Upload artifact
       uses: actions/upload-artifact@v4
       with:
-        name: PlaylistScheduler-v1.1-Windows
-        path: PlaylistScheduler-v1.1-Windows.zip
+        name: OBS-Scheduler-v1.2-FULL-Windows
+        path: OBS-Scheduler-v1.2-FULL-Windows.zip
