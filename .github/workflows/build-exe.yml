@@ -27,7 +27,7 @@ jobs:
         pip install websockets
         echo "Verifying obsws-python installation:"
         python -c "import obsws_python; print('obsws-python version:', obsws_python.__version__)"
-        pip list | findstr obsws
+        pip list | Select-String "obsws"
     
     - name: Download FFmpeg
       run: |
@@ -39,12 +39,14 @@ jobs:
       run: |
         pyinstaller --onedir --windowed --name "OBS-Scheduler-v1.2-FULL" --add-binary "ffprobe.exe;." --hidden-import obsws_python --hidden-import obsws_python.reqs --hidden-import websockets --hidden-import websockets.legacy --hidden-import websockets.legacy.client --collect-all obsws_python scheduler_app.py
         
-    - name: Verify build contents
+    - name: Verify build contents (FIXED)
       run: |
-        echo "Build directory contents:"
-        dir "dist\OBS-Scheduler-v1.2-FULL"
-        echo "Looking for obsws_python files:"
-        dir "dist\OBS-Scheduler-v1.2-FULL" /s | findstr obsws
+        Write-Host "Build directory contents:"
+        Get-ChildItem -Path "dist\OBS-Scheduler-v1.2-FULL" -Recurse | Format-Table Name, Length, LastWriteTime
+        Write-Host "Searching for obsws_python files:"
+        Get-ChildItem -Path "dist\OBS-Scheduler-v1.2-FULL" -Recurse | Where-Object { $_.Name -like "*obsws*" } | Format-Table Name, FullName
+        Write-Host "Searching for websocket files:"
+        Get-ChildItem -Path "dist\OBS-Scheduler-v1.2-FULL" -Recurse | Where-Object { $_.Name -like "*websocket*" } | Format-Table Name, FullName
         
     - name: Create release package
       run: |
