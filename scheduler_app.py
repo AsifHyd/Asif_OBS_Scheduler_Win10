@@ -230,7 +230,7 @@ class PlaylistScheduler:
         self.obs_client = obs.ReqClient(
             host='127.0.0.1', 
             port=4455,                    # Changed from 4444
-            password='your-obs-password', # Add your actual OBS password
+            password='Abcd!234', # Add your actual OBS password
             timeout=3
         )
         
@@ -647,4 +647,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
